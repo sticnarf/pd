@@ -19,7 +19,7 @@ import (
 	"github.com/pingcap/pd/v4/pkg/slice"
 	"github.com/pingcap/pd/v4/server/core"
 	"github.com/pingcap/pd/v4/server/schedule/opt"
-	"github.com/pingcap/pd/v4/server/schedule/placement"
+	placement "github.com/pingcap/pd/v4/server/schedule/placement"
 	"github.com/pingcap/pd/v4/server/schedule/storelimit"
 )
 
@@ -548,19 +548,21 @@ type engineFilter struct {
 	constraint placement.LabelConstraint
 }
 
-// NewEngineFilter creates a filter that filters out default engine stores.
-// By default, all stores that are not marked with a special engine will be filtered out.
-// Specify the special engine label if you want to include the special stores.
-func NewEngineFilter(scope string, allowEngines ...string) Filter {
-	var values []string
-	for _, v := range allSpeicalEngines {
-		if slice.NoneOf(allowEngines, func(i int) bool { return allowEngines[i] == v }) {
-			values = append(values, v)
-		}
+// NewEngineFilter creates a filter that filters out different kinds of engine stores.
+// If a special engine is given, only stores with exactly the same engine label will
+// be kept. Otherwise, only stores with special engines will be filtered out.
+func NewEngineFilter(scope string, engine string) Filter {
+	var constraint placement.LabelConstraint
+	if slice.AnyOf(allSpeicalEngines, func(i int) bool { return allSpeicalEngines[i] == engine }) {
+		// The engine is a special engine. Only engines with exactly the same engine label is kept.
+		constraint = placement.LabelConstraint{Key: "engine", Op: placement.In, Values: []string{engine}}
+	} else {
+		// The engine is not a special engine. All non-special engines are accepted.
+		constraint = placement.LabelConstraint{Key: engine, Op: placement.NotIn, Values: allSpeicalEngines}
 	}
 	return &engineFilter{
 		scope:      scope,
-		constraint: placement.LabelConstraint{Key: "engine", Op: "notIn", Values: values},
+		constraint: constraint,
 	}
 }
 

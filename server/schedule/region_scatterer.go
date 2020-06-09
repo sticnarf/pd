@@ -82,7 +82,6 @@ func NewRegionScatterer(cluster opt.Cluster) *RegionScatterer {
 		cluster: cluster,
 		filters: []filter.Filter{
 			filter.StoreStateFilter{ActionScope: regionScatterName},
-			filter.NewEngineFilter(regionScatterName),
 		},
 		selected: newSelectedStores(),
 	}
@@ -142,6 +141,7 @@ func (r *RegionScatterer) selectPeerToReplace(stores map[uint64]*core.StoreInfo,
 	sourceStore := r.cluster.GetStore(storeID)
 	if sourceStore == nil {
 		log.Error("failed to get the store", zap.Uint64("store-id", storeID))
+		return nil
 	}
 	var scoreGuard filter.Filter
 	if r.cluster.IsPlacementRulesEnabled() {
@@ -149,10 +149,11 @@ func (r *RegionScatterer) selectPeerToReplace(stores map[uint64]*core.StoreInfo,
 	} else {
 		scoreGuard = filter.NewDistinctScoreFilter(r.name, r.cluster.GetLocationLabels(), regionStores, sourceStore)
 	}
+	engineTypeFilter := filter.NewEngineFilter(regionScatterName, sourceStore.GetLabelValue(filter.EngineKey))
 
 	candidates := make([]*core.StoreInfo, 0, len(stores))
 	for _, store := range stores {
-		if !scoreGuard.Target(r.cluster, store) {
+		if !scoreGuard.Target(r.cluster, store) || !engineTypeFilter.Target(r.cluster, store) {
 			continue
 		}
 		candidates = append(candidates, store)
