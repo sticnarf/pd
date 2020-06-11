@@ -548,7 +548,7 @@ type engineFilter struct {
 	constraint placement.LabelConstraint
 }
 
-// NewEngineFilter creates a filter that filters out different kinds of engine stores.
+// NewEngineFilter creates a filter that filters out stores with a different kind of engine.
 // If a special engine is given, only stores with exactly the same engine label will
 // be kept. Otherwise, only stores with special engines will be filtered out.
 func NewEngineFilter(scope string, engine string) Filter {
@@ -558,11 +558,19 @@ func NewEngineFilter(scope string, engine string) Filter {
 		constraint = placement.LabelConstraint{Key: "engine", Op: placement.In, Values: []string{engine}}
 	} else {
 		// The engine is not a special engine. All non-special engines are accepted.
-		constraint = placement.LabelConstraint{Key: engine, Op: placement.NotIn, Values: allSpeicalEngines}
+		constraint = placement.LabelConstraint{Key: "engine", Op: placement.NotIn, Values: allSpeicalEngines}
 	}
 	return &engineFilter{
 		scope:      scope,
 		constraint: constraint,
+	}
+}
+
+// NewSpecialEngineFilter creates a filter that filters out non-special engines.
+func NewSpecialEngineFilter(scope string) Filter {
+	return &engineFilter{
+		scope:      scope,
+		constraint: placement.LabelConstraint{Key: "engine", Op: placement.In, Values: allSpeicalEngines},
 	}
 }
 
